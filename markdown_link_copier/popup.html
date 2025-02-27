@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Link Copier</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 10px;
+      min-width: 220px;
+    }
+    .radio-group {
+      margin-bottom: 10px;
+    }
+    .radio-group label {
+      margin-right: 10px;
+    }
+    button {
+      padding: 8px 12px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="radio-group">
+
+    <label>
+      <input type="radio" name="format" value="Markdown" checked> Markdown<br/>
+    </label>
+    <label>
+      <input type="radio" name="format" value="HTML"> HTML<br/>
+    </label>
+    <label>
+      <input type="radio" name="format" value="Text"> Text<br/>
+    </label>
+  </div>
+  <button id="copyBtn">リンクをコピー</button>
+  <script src="popup.js"></script>
+</body>
+</html>
