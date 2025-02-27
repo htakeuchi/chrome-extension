@@ -1,3 +1,6 @@
+# 自作Chrome拡張
+運用しているブックマークレットをChrome拡張化したものの置き場。自分用なのでChatGPTを使って雑に実装しただけ
+
 ## amazon_markdown_copier
 Amazonの商品リンクを作成する
 
