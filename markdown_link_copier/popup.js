@@ -1,27 +1,13 @@
-// クリップボードへのコピーを試み、失敗した場合は一時テキストエリアを使ったフォールバック処理
+// クリップボードへのコピーを試み、失敗した場合はエラーメッセージを表示
 function copyToClipboard(text) {
   if (navigator.clipboard && navigator.clipboard.writeText) {
-    return navigator.clipboard.writeText(text);
-  } else {
-    return new Promise((resolve, reject) => {
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      // 一時的に画面外に配置
-      textarea.style.position = 'fixed';
-      textarea.style.top = '-1000px';
-      textarea.style.left = '-1000px';
-      document.body.appendChild(textarea);
-      textarea.focus();
-      textarea.select();
-      try {
-        const successful = document.execCommand('copy');
-        document.body.removeChild(textarea);
-        successful ? resolve() : reject(new Error('コピーに失敗しました'));
-      } catch (err) {
-        document.body.removeChild(textarea);
-        reject(err);
-      }
+    return navigator.clipboard.writeText(text).catch(err => {
+      console.error('クリップボードへの書き込みに失敗しました:', err);
+      alert('クリップボードへの書き込みに失敗しました。');
     });
+  } else {
+    alert('このブラウザはクリップボードAPIをサポートしていません。');
+    return Promise.reject(new Error('クリップボードAPIがサポートされていません'));
   }
 }
 
@@ -41,8 +27,6 @@ document.getElementById('copyBtn').addEventListener('click', async () => {
         case 'Text':
           linkText = `${tab.title} - ${tab.url}`;
           break;
-        default:
-          linkText = `[${tab.title}](${tab.url})`;
       }
       await copyToClipboard(linkText);
       // コピー完了を待ってから少し待機し、ポップアップを閉じる
@@ -52,7 +36,7 @@ document.getElementById('copyBtn').addEventListener('click', async () => {
       window.close();
     }
   } catch (error) {
-    alert('エラーが発生しました: ' + error);
+    alert(`エラーが発生しました: ${error}`);
     window.close();
   }
 });
