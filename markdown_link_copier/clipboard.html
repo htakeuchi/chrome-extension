@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Markdown Link Copier Clipboard</title>
+  <style>
+    #clipboardText {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <textarea id="clipboardText" aria-hidden="true"></textarea>
+  <script src="clipboard.js"></script>
+</body>
+</html>

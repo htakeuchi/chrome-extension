@@ -2,11 +2,16 @@
   "manifest_version": 3,
   "name": "Markdown Link Copier",
   "version": "1.0",
-  "description": "表示中のページのURLとタイトルをMarkdown形式のリンクに変換し、クリップボードへコピーします。",
+  "minimum_chrome_version": "109",
+  "description": "表示中のページのURLとタイトルを選択した形式のリンクに変換し、クリップボードへコピーします。",
   "permissions": [
     "activeTab",
-    "clipboardWrite"
+    "clipboardWrite",
+    "offscreen"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
@@ -19,6 +24,28 @@
     "16": "icon16.png",
     "48": "icon48.png",
     "128": "icon128.png"
+  },
+  "commands": {
+    "copy-markdown": {
+      "suggested_key": {
+        "default": "Alt+Shift+M",
+        "mac": "Option+Shift+M"
+      },
+      "description": "Copy the current tab as a Markdown link"
+    },
+    "copy-html": {
+      "suggested_key": {
+        "default": "Alt+Shift+H",
+        "mac": "Option+Shift+H"
+      },
+      "description": "Copy the current tab as an HTML link"
+    },
+    "copy-text": {
+      "suggested_key": {
+        "default": "Alt+Shift+T",
+        "mac": "Option+Shift+T"
+      },
+      "description": "Copy the current tab as plain text"
+    }
   }
 }
-
