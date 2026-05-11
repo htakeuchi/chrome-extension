@@ -35,8 +35,9 @@ async function copyCurrentTab(formatId, activeButton) {
       throw new Error('タブ情報が取得できませんでした。');
     }
 
-    const linkText = LinkCopier.formatLink(formatId, tab.title, tab.url);
-    await copyToClipboard(linkText);
+    const selectionText = await getSelectedText(tab.id);
+    const clipboardText = LinkCopier.formatClipboardText(formatId, tab.title, tab.url, selectionText);
+    await copyToClipboard(clipboardText);
     setStatus(`${format.label} をコピーしました。`);
     setTimeout(() => window.close(), 350);
   } catch (error) {
@@ -52,6 +53,61 @@ async function getActiveTab() {
     currentWindow: true,
   });
   return tab;
+}
+
+async function getSelectedText(tabId) {
+  if (!tabId || !chrome.scripting || !chrome.scripting.executeScript) {
+    return '';
+  }
+
+  try {
+    const [result] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: getPageSelectedText,
+    });
+
+    return result && typeof result.result === 'string' ? result.result : '';
+  } catch (error) {
+    console.debug('Selected text could not be read from the active tab:', error);
+    return '';
+  }
+}
+
+function getPageSelectedText() {
+  const selection = globalThis.getSelection();
+  const selectedText = selection ? selection.toString() : '';
+
+  if (selectedText) {
+    return selectedText;
+  }
+
+  const activeElement = document.activeElement;
+  if (!activeElement || typeof activeElement.value !== 'string') {
+    return '';
+  }
+
+  const tagName = activeElement.tagName;
+  if (tagName === 'INPUT') {
+    const type = activeElement.type.toLowerCase();
+    const textInputTypes = ['email', 'number', 'search', 'tel', 'text', 'url'];
+    if (!textInputTypes.includes(type)) {
+      return '';
+    }
+  } else if (tagName !== 'TEXTAREA') {
+    return '';
+  }
+
+  const selectionStart = activeElement.selectionStart;
+  const selectionEnd = activeElement.selectionEnd;
+  if (
+    typeof selectionStart !== 'number' ||
+    typeof selectionEnd !== 'number' ||
+    selectionEnd <= selectionStart
+  ) {
+    return '';
+  }
+
+  return activeElement.value.slice(selectionStart, selectionEnd);
 }
 
 async function copyToClipboard(text) {

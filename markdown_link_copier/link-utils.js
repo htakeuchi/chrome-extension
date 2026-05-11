@@ -47,8 +47,20 @@
     }
   }
 
+  function formatClipboardText(formatId, title, url, selectionText) {
+    const linkText = formatLink(formatId, title, url);
+    const trimmedSelectionText = typeof selectionText === 'string' ? selectionText.trim() : '';
+
+    if (!trimmedSelectionText) {
+      return linkText;
+    }
+
+    return `“${trimmedSelectionText}”\n\n${linkText}`;
+  }
+
   global.LinkCopier = Object.freeze({
     formats: Object.freeze(formats.slice()),
+    formatClipboardText,
     formatLink,
     getFormat,
     getFormatByCommand,

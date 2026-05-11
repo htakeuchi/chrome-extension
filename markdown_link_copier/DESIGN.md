@@ -2,7 +2,7 @@
 
 ## 概要
 
-Markdown Link Copier は、表示中のアクティブタブのタイトルと URL を取得し、選択した形式のリンク文字列としてクリップボードへコピーする Chrome 拡張機能である。
+Markdown Link Copier は、表示中のアクティブタブのタイトルと URL を取得し、選択した形式のリンク文字列としてクリップボードへコピーする Chrome 拡張機能である。ページ内でテキストが選択されている場合は、その選択テキストを引用としてリンクの前に付ける。
 
 現行実装は Manifest V3 の拡張で、ポップアップ操作とブラウザ内キーボードショートカットの 2 つの入口を持つ。ポップアップではフォーマット行をクリックすると即コピーされ、ブラウザ内では Chrome Extensions `commands` API に登録したショートカットからコピーされる。
 
@@ -32,6 +32,7 @@ Markdown Link Copier は、表示中のアクティブタブのタイトルと U
 | `activeTab` | ユーザー操作または commands API のショートカット実行時に、現在のアクティブタブのタイトルと URL を取得する。 |
 | `clipboardWrite` | 生成したリンク文字列をクリップボードへ書き込む。 |
 | `offscreen` | background service worker からクリップボード操作用の非表示 document を作成する。 |
+| `scripting` | ユーザー操作または commands API のショートカット実行時に、アクティブタブへ一時的な関数を注入して選択テキストを取得する。 |
 
 `action.default_popup` には `popup.html` が指定されている。`background.service_worker` には `background.js` が指定されており、ブラウザ内ショートカットのイベントを受け取る。
 
@@ -54,6 +55,7 @@ Markdown Link Copier は、表示中のアクティブタブのタイトルと U
 ```mermaid
 flowchart TD
   Popup["popup.html / popup.js"] --> Utils["link-utils.js"]
+  Popup --> Scripting["chrome.scripting.executeScript"]
   Popup --> PopupClipboard["navigator.clipboard.writeText"]
   Popup --> ShortcutSettings["chrome://extensions/shortcuts"]
 
@@ -63,8 +65,11 @@ flowchart TD
   Background --> Offscreen["clipboard.html / clipboard.js"]
   Offscreen --> OffscreenClipboard["document.execCommand('copy')"]
 
+  Background --> Scripting
   TabsAPI --> ActiveTab["アクティブタブ title/url"]
+  Scripting --> Selection["選択テキスト"]
   Utils --> LinkText["リンク文字列"]
+  Selection --> LinkText
   LinkText --> PopupClipboard
   LinkText --> OffscreenClipboard
 ```
@@ -95,7 +100,7 @@ flowchart TD
 
 各形式はショートカット成功時に表示する短いバッジ文字列も持つ。Markdown は `MD`、HTML は `HTML`、Text は `TXT` を表示する。
 
-`LinkCopier.formatLink(formatId, title, url)` が実際の文字列生成を担当する。popup と background の両方がこの関数を使うため、形式追加時の変更箇所を抑えられる。
+`LinkCopier.formatLink(formatId, title, url)` がリンク文字列生成を担当し、`LinkCopier.formatClipboardText(formatId, title, url, selectionText)` が選択テキスト付きの最終コピー文字列生成を担当する。popup と background の両方がこれらの関数を使うため、形式追加時の変更箇所を抑えられる。
 
 ## ポップアップからのコピー処理
 
@@ -103,9 +108,10 @@ flowchart TD
 
 1. クリックされた要素の `data-format` から形式 ID を取得する。
 2. `chrome.tabs.query({ active: true, currentWindow: true })` でアクティブタブを取得する。
-3. `LinkCopier.formatLink(formatId, tab.title, tab.url)` でコピー対象文字列を生成する。
-4. `navigator.clipboard.writeText` でクリップボードへ書き込む。
-5. 成功ステータスを表示し、短時間後にポップアップを閉じる。
+3. `chrome.scripting.executeScript` でアクティブタブの選択テキストを取得する。選択がない場合や取得できない場合は空文字として扱う。
+4. `LinkCopier.formatClipboardText(formatId, tab.title, tab.url, selectionText)` でコピー対象文字列を生成する。
+5. `navigator.clipboard.writeText` でクリップボードへ書き込む。
+6. 成功ステータスを表示し、短時間後にポップアップを閉じる。
 
 Clipboard API が使えない、タブ情報が取得できない、書き込みに失敗する、といった場合はエラー表示に切り替える。
 
@@ -117,11 +123,12 @@ Clipboard API が使えない、タブ情報が取得できない、書き込み
 
 1. 受け取った command 名を `LinkCopier.getFormatByCommand(command)` で形式に変換する。
 2. command イベントから渡された tab、または `chrome.tabs.query` でアクティブタブを取得する。
-3. `LinkCopier.formatLink(format.id, tab.title, tab.url)` でコピー対象文字列を生成する。
-4. `ensureOffscreenDocument()` で `clipboard.html` を用意する。
-5. `chrome.runtime.sendMessage` で offscreen document にコピー対象文字列を渡す。
-6. `clipboard.js` が非表示 textarea に文字列を入れ、`document.execCommand('copy')` でクリップボードへ書き込む。
-7. 成功時は拡張アイコンのバッジに形式名を短く表示し、短時間後に消す。
+3. `chrome.scripting.executeScript` でアクティブタブの選択テキストを取得する。選択がない場合や取得できない場合は空文字として扱う。
+4. `LinkCopier.formatClipboardText(format.id, tab.title, tab.url, selectionText)` でコピー対象文字列を生成する。
+5. `ensureOffscreenDocument()` で `clipboard.html` を用意する。
+6. `chrome.runtime.sendMessage` で offscreen document にコピー対象文字列を渡す。
+7. `clipboard.js` が非表示 textarea に文字列を入れ、`document.execCommand('copy')` でクリップボードへ書き込む。
+8. 成功時は拡張アイコンのバッジに形式名を短く表示し、短時間後に消す。
 
 service worker は DOM を持たないため、クリップボード操作は offscreen document に委譲している。offscreen document はフォーカスできないため、`navigator.clipboard.writeText` ではなく DOM の copy command を使う。
 
@@ -167,7 +174,7 @@ service worker は DOM を持たないため、クリップボード操作は of
 
 | 制約 | 内容 |
 | --- | --- |
-| 出力文字列のエスケープなし | Markdown、HTML ともにタイトルや URL 内の特殊文字をエスケープしていない。 |
+| 出力文字列のエスケープなし | Markdown、HTML ともにタイトルや URL、選択テキスト内の特殊文字をエスケープしていない。 |
 | HTML 属性値のエスケープなし | HTML 形式では `href` とリンクテキストに値を直接埋め込む。 |
 | ショートカット編集は Chrome 標準 UI 依存 | 拡張内では割り当てを直接変更せず、`chrome://extensions/shortcuts` に遷移する。 |
 | ショートカット衝突の可能性 | OS、Chrome、他拡張のショートカットと衝突した場合、Chrome 側で未割り当てになる可能性がある。 |
@@ -204,6 +211,7 @@ service worker は DOM を持たないため、クリップボード操作は of
 | --- | --- |
 | ポップアップ表示 | 拡張アイコンをクリックしてフォーマット行とショートカット表示が表示される。 |
 | Markdown クリックコピー | Markdown 行をクリックして `[title](url)` がコピーされる。 |
+| 選択テキスト付きコピー | ページ上のテキストを選択した状態でコピーすると、`“選択テキスト”`、空行、作成したリンクの順でコピーされる。 |
 | HTML クリックコピー | HTML 行をクリックして `<a href="url">title</a>` がコピーされる。 |
 | Text クリックコピー | Text 行をクリックして `title - url` がコピーされる。 |
 | ショートカット表示 | `chrome.commands.getAll()` の結果が各行に反映され、未割り当ては `未設定` になる。 |
